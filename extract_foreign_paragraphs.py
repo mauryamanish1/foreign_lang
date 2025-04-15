@@ -4,7 +4,6 @@ from langdetect import detect
 from collections import Counter
 import pandas as pd
 import re
-import os
 import io
 
 # ---------------------- Helper Functions ----------------------
@@ -39,7 +38,12 @@ def clean_line(line):
     return line
 
 def extract_paragraphs_from_pdf(pdf_bytes, use_columns=True, column_split=300):
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception as e:
+        st.error("❌ Unable to read the PDF. Please check if it's a valid file.")
+        return []
+
     paragraphs = []
     for page_num, page in enumerate(doc, start=1):
         text = extract_text_by_columns(page, column_split) if use_columns else page.get_text("text")
@@ -77,7 +81,7 @@ def detect_languages(paragraphs):
     for p in paragraphs:
         try:
             lang = detect(p['text'])
-        except:
+        except Exception:
             lang = "unknown"
         p['language'] = lang
         lang_results.append(lang)
@@ -85,6 +89,9 @@ def detect_languages(paragraphs):
 
 def find_foreign_paragraphs(paragraphs, lang_results):
     lang_count = Counter(lang_results)
+    if not lang_count:
+        return "unknown", []
+
     major_language = lang_count.most_common(1)[0][0]
     foreign_paragraphs = [
         p for p in paragraphs if p['language'] != major_language and p['language'] != "unknown"
@@ -93,40 +100,46 @@ def find_foreign_paragraphs(paragraphs, lang_results):
 
 def analyze_pdf_language_and_save_bytesio(pdf_bytes, file_name, use_columns=True, column_split=300):
     paragraphs = extract_paragraphs_from_pdf(pdf_bytes, use_columns, column_split)
+    if not paragraphs:
+        return "unknown", pd.DataFrame(), b"", ""
+
     paragraphs, lang_results = detect_languages(paragraphs)
     major_language, foreign_paragraphs = find_foreign_paragraphs(paragraphs, lang_results)
+
+    if not foreign_paragraphs:
+        return major_language, pd.DataFrame(), b"", ""
+
     df_foreign = pd.DataFrame(foreign_paragraphs)
     output_csv = f"{file_name.replace('.pdf', '')}_foreign.csv"
     csv_bytes = df_foreign.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
     return major_language, df_foreign, csv_bytes, output_csv
 
-
 # ---------------------- Streamlit App ----------------------
 st.set_page_config(page_title="Foreign Language Detector", layout="centered")
 st.title("📄 Foreign Language Detector")
 
-uploaded_file = st.file_uploader("Upload a PDF file(<10 MB)", type=["pdf"])
+uploaded_file = st.file_uploader("Upload a PDF file (<10 MB)", type=["pdf"])
 
 if uploaded_file is not None:
     with st.spinner("Analyzing PDF..."):
-        pdf_bytes = uploaded_file.read()
-        major_lang, df, csv_bytes, output_csv = analyze_pdf_language_and_save_bytesio(
-            pdf_bytes, uploaded_file.name
-        )
-        st.success(f"✅ Major language: {major_lang}")
-    st.info(f"Found {len(df)} foreign paragraphs.")
+        try:
+            pdf_bytes = uploaded_file.read()
+            major_lang, df, csv_bytes, output_csv = analyze_pdf_language_and_save_bytesio(
+                pdf_bytes, uploaded_file.name
+            )
 
-    # Debug: Show detected columns
-    # st.write("Detected columns:", df.columns.tolist())
-
-    # Safe display if columns exist
-    if not df.empty and all(col in df.columns for col in ['page', 'language', 'text']):
-        st.dataframe(df[['page', 'language', 'text']].head(10))
-        st.download_button(
-            label="⬇️ Download Foreign Paragraphs CSV",
-            data=csv_bytes,
-            file_name=output_csv,
-            mime="text/csv"
-        )
-    else:
-        st.warning("No valid foreign paragraphs detected or expected columns missing.")
+            if df.empty:
+                st.warning("No foreign language paragraphs were detected.")
+            else:
+                st.success(f"✅ Major language: {major_lang}")
+                st.info(f"Found {len(df)} foreign paragraphs.")
+                st.dataframe(df[['page', 'language', 'text']].head(10))
+                st.download_button(
+                    label="⬇️ Download Foreign Paragraphs CSV",
+                    data=csv_bytes,
+                    file_name=output_csv,
+                    mime="text/csv"
+                )
+        except Exception as e:
+            st.error(f"❌ An unexpected error occurred during analysis.")
+            st.exception(e)
