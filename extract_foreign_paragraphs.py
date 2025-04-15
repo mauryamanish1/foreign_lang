@@ -7,13 +7,35 @@ import re
 import io
 
 # ---------------------- Helper Functions ----------------------
+
 def is_valid_paragraph(text):
-    word_count = len(text.split())
+    text = text.strip()
+    if not text or len(text.split()) < 3:
+        return False
+
+    # Filter obvious noise
+    if re.match(r'^.*\.{4,}.*$', text):
+        return False
+
+    words = text.split()
+    word_count = len(words)
+    part_number_like = 0
+
+    for word in words:
+        cleaned = word.strip(".,;:()[]{}")
+        has_digits = any(char.isdigit() for char in cleaned)
+        long_enough = len(cleaned) > 3
+        if has_digits and long_enough:
+            part_number_like += 1
+
+    part_ratio = part_number_like / word_count if word_count else 0
+    if part_ratio > 0.3:
+        return False
+
     has_punctuation = any(p in text for p in ['.', ':', ';', '!', '?'])
-    not_code_like = not re.match(r'^\w{2,10}[-\d]*$', text.strip())
-    not_part_number = not re.search(r'\b(part\s*no|ref|code|item)\b', text.lower())
-    not_dotted_line = not re.match(r'^.*\.{4,}.*$', text)
-    return word_count >= 8 and has_punctuation and not_code_like and not_part_number and not_dotted_line
+    return has_punctuation
+
+
 
 def extract_text_by_columns(page, column_split=300):
     blocks = page.get_text("blocks")
