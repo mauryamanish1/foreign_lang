@@ -5,6 +5,8 @@ from collections import Counter
 import pandas as pd
 import re
 import io
+from langdetect import detect
+import pycountry
 
 # ---------------------- Helper Functions ----------------------
 
@@ -98,16 +100,42 @@ def extract_paragraphs_from_pdf(pdf_bytes, use_columns=True, column_split=300):
             })
     return paragraphs
 
+# def detect_languages(paragraphs):
+#     lang_results = []
+#     for p in paragraphs:
+#         try:
+#             lang = detect(p['text'])
+#         except Exception:
+#             lang = "unknown"
+#         p['language'] = lang
+#         lang_results.append(lang)
+#     return paragraphs, lang_results
+
+
+
+
+
+def get_language_name(code):
+    try:
+        return pycountry.languages.get(alpha_2=code).name
+    except:
+        return "Unknown"
+
 def detect_languages(paragraphs):
     lang_results = []
     for p in paragraphs:
         try:
-            lang = detect(p['text'])
+            lang_code = detect(p['text'])
+            lang_name = get_language_name(lang_code)
         except Exception:
-            lang = "unknown"
-        p['language'] = lang
-        lang_results.append(lang)
+            lang_code = "unknown"
+            lang_name = "Unknown"
+        p['language'] = lang_name
+        lang_results.append(lang_name)
     return paragraphs, lang_results
+
+
+
 
 def find_foreign_paragraphs(paragraphs, lang_results):
     lang_count = Counter(lang_results)

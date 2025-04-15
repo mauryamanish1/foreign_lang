@@ -2,3 +2,4 @@ pymupdf
 langdetect
 pandas
 streamlit
+pycountry
