@@ -132,9 +132,10 @@ def analyze_pdf_language_and_save_bytesio(pdf_bytes, file_name, use_columns=True
         return major_language, pd.DataFrame(), b"", ""
 
     df_foreign = pd.DataFrame(foreign_paragraphs)
+    clean_df_foreign = df_foreign.loc[df_foreign['word_count']>9]
     output_csv = f"{file_name.replace('.pdf', '')}_foreign.csv"
-    csv_bytes = df_foreign.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
-    return major_language, df_foreign, csv_bytes, output_csv
+    csv_bytes = clean_df_foreign.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+    return major_language, clean_df_foreign, csv_bytes, output_csv
 
 # ---------------------- Streamlit App ----------------------
 st.set_page_config(page_title="Foreign Language Detector", layout="centered")
