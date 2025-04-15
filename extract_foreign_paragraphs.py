@@ -113,12 +113,20 @@ if uploaded_file is not None:
         major_lang, df, csv_bytes, output_csv = analyze_pdf_language_and_save_bytesio(
             pdf_bytes, uploaded_file.name
         )
-    st.success(f"✅ Major language: {major_lang}")
+        st.success(f"✅ Major language: {major_lang}")
     st.info(f"Found {len(df)} foreign paragraphs.")
-    st.dataframe(df[['page', 'language', 'text']].head(10))
-    st.download_button(
-        label="⬇️ Download Foreign Paragraphs CSV",
-        data=csv_bytes,
-        file_name=output_csv,
-        mime="text/csv"
-    )
+
+    # Debug: Show detected columns
+    # st.write("Detected columns:", df.columns.tolist())
+
+    # Safe display if columns exist
+    if not df.empty and all(col in df.columns for col in ['page', 'language', 'text']):
+        st.dataframe(df[['page', 'language', 'text']].head(10))
+        st.download_button(
+            label="⬇️ Download Foreign Paragraphs CSV",
+            data=csv_bytes,
+            file_name=output_csv,
+            mime="text/csv"
+        )
+    else:
+        st.warning("No valid foreign paragraphs detected or expected columns missing.")
