@@ -7,6 +7,12 @@ import re
 import io
 from langdetect import detect
 import pycountry
+from langdetect import DetectorFactory
+
+#---------------------setting consistency------
+DetectorFactory.seed = 0
+
+
 
 # ---------------------- Helper Functions ----------------------
 
